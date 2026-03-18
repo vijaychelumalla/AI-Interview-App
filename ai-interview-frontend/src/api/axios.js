@@ -1,6 +1,6 @@
 import axios from "axios";
-// const API = process.env.REACT_APP_BASE_URL;
-export const API = axios.create({
+
+const API = axios.create({
   baseURL: "https://ai-interview-app-jwd9.onrender.com"
 });
 
