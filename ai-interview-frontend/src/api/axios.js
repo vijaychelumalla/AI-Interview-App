@@ -1,7 +1,7 @@
 import axios from "axios";
-const API = process.env.REACT_APP_BASE_URL;
-const instance = axios.create({
-  baseURL: "http://localhost:5000",
+// const API = process.env.REACT_APP_BASE_URL;
+export const API = axios.create({
+  baseURL: "https://ai-interview-app-jwd9.onrender.com"
 });
 
 instance.interceptors.request.use((config) => {
