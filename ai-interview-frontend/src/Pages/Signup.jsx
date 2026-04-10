@@ -78,7 +78,7 @@
 
 import  { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import API from "../api/axios";
 import "./Auth.css";
 
 function Signup() {
@@ -101,8 +101,8 @@ function Signup() {
     e.preventDefault();
 
     try {
-      const response = await axios.post(
-        "http://localhost:5000/api/auth/signup",
+      const response = await API.post(
+        "/api/auth/signup",
         formData
       );
 
