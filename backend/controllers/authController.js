@@ -1,14 +1,35 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-
+const mongoose = require("mongoose");
 
 // ================= SIGNUP =================
 exports.signup = async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        message: "Database service is temporarily unavailable. Please verify MongoDB connection."
+      });
+    }
+
     const { name, email, password } = req.body;
 
-    const existingUser = await User.findOne({ email });
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Please provide all required fields" });
+    }
+
+    const emailRegex = /^\S+@\S+\.\S+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "Please provide a valid email address" });
+    }
+
+    if (typeof password !== "string" || password.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters long" });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
@@ -16,20 +37,19 @@ exports.signup = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
-      name,
-      email,
+      name: name.trim(),
+      email: normalizedEmail,
       password: hashedPassword,
-      role: "user" // default role
+      role: "user" // strictly default to 'user' to prevent privilege escalation
     });
 
-    // ✅ TOKEN ADD HERE
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "User registered successfully",
       token,
       user: {
@@ -41,19 +61,29 @@ exports.signup = async (req, res) => {
     });
 
   } catch (error) {
-    console.log("FULL ERROR:", error);
-    res.status(500).json({ message: error.message });
+    console.error("Signup error:", error);
+    return res.status(500).json({ message: "Server error during registration" });
   }
 };
-
-
 
 // ================= LOGIN =================
 exports.login = async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        message: "Database service is temporarily unavailable. Please verify MongoDB connection."
+      });
+    }
+
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    if (!email || !password) {
+      return res.status(400).json({ message: "Please provide email and password" });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
@@ -69,7 +99,7 @@ exports.login = async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    res.json({
+    return res.json({
       token,
       user: {
         id: user._id,
@@ -80,7 +110,7 @@ exports.login = async (req, res) => {
     });
 
   } catch (error) {
-    console.log("FULL ERROR:", error);
-    res.status(500).json({ message: error.message });
+    console.error("Login error:", error);
+    return res.status(500).json({ message: "Server error during login" });
   }
 };

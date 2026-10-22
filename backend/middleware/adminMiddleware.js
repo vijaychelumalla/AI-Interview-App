@@ -1,8 +1,8 @@
 const adminOnly = (req, res, next) => {
   if (req.user && req.user.role === "admin") {
-    next();
+    return next();
   } else {
-    res.status(403).json({ message: "Not admin" });
+    return res.status(403).json({ message: "Access denied: Administrator privileges required" });
   }
 };
 

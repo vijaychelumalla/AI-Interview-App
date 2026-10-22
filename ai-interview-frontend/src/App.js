@@ -30,8 +30,22 @@ function App() {
           }
         />
 
-        <Route path="/interview" element={<Interview />} />
-        <Route path="/result" element={<Result />} />
+        <Route
+          path="/interview"
+          element={
+            <PrivateRoute>
+              <Interview />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/result"
+          element={
+            <PrivateRoute>
+              <Result />
+            </PrivateRoute>
+          }
+        />
 
         <Route
           path="/admin"

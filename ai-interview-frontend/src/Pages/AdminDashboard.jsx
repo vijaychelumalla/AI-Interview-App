@@ -599,8 +599,8 @@ function AdminDashboard() {
   const [active, setActive] = useState("dashboard");
   const [users, setUsers] = useState([]);
   const [stats, setStats] = useState({
+    users: 0,
     interviews: 0,
-    results: 0,
   });
 
   useEffect(() => {
@@ -608,8 +608,8 @@ function AdminDashboard() {
       try {
         const { data } = await axios.get("/api/admin/stats");
         setStats({
-          interviews: data.interviews,
-          results: data.results,
+          users: data.users ?? 0,
+          interviews: data.interviews ?? 0,
         });
       } catch (err) {
         console.log(err);
@@ -637,9 +637,8 @@ function AdminDashboard() {
         <div style={styles.content}>
           {active === "dashboard" && (
             <DashboardPanel
-              userCount={users.length}
+              userCount={stats.users}
               interviews={stats.interviews}
-              results={stats.results}
             />
           )}
 

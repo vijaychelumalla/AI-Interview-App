@@ -1,12 +1,25 @@
-
 import axios from "axios";
-const API = process.env.REACT_APP_BASE_URL;
+
+// Determine base URL:
+// 1. Explicit env var REACT_APP_BASE_URL (if backend is on a separate host/domain)
+// 2. Relative "" (if backend is proxied, tunneled, or served together)
+const getBaseURL = () => {
+  if (process.env.REACT_APP_BASE_URL) {
+    return process.env.REACT_APP_BASE_URL.replace(/\/+$/, "");
+  }
+  return "";
+};
+
 const instance = axios.create({
-  baseURL: API || "https://ai-interview-app-jwd9.onrender.com",
+  baseURL: getBaseURL(),
+  timeout: 30000, // 30s timeout to allow for serverless or cold-start spinup
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
 instance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token"); // 🔥 read token directly
+  const token = localStorage.getItem("token");
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -16,29 +29,3 @@ instance.interceptors.request.use((config) => {
 });
 
 export default instance;
-
-
-
-
-
-
-
-
-
-// import axios from "axios";
-// const API = process.env.REACT_APP_BASE_URL;
-// const instance = axios.create({
-//   baseURL: "http://localhost:5000",
-// });
-
-// instance.interceptors.request.use((config) => {
-//   const token = localStorage.getItem("token"); // 🔥 read token directly
-
-//   if (token) {
-//     config.headers.Authorization = `Bearer ${token}`;
-//   }
-
-//   return config;
-// });
-
-// export default instance;

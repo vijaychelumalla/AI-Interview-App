@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../api/axios";
@@ -14,8 +10,11 @@ function Login() {
     email: "",
     password: "",
   });
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleChange = (e) => {
+    if (errorMessage) setErrorMessage("");
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
@@ -24,34 +23,45 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setErrorMessage("");
 
     try {
-      const response = await API.post(
-        "/api/auth/login",
-        formData
-      );
+      const response = await API.post("/api/auth/login", formData);
 
       // Save token & user
       localStorage.setItem("token", response.data.token);
       localStorage.setItem("user", JSON.stringify(response.data.user));
 
-      alert("Login Successful!");
-
       // Role based redirect
-      if (response.data.user.role === "admin") {
+      if (response.data.user?.role === "admin") {
         navigate("/admin");
       } else {
         navigate("/dashboard");
       }
     } catch (error) {
-      alert(error.response?.data?.message || "Login failed");
+      console.error("Login failure:", error);
+      if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
+        setErrorMessage(
+          "The server took too long to respond. The backend may be spinning up from cold sleep. Please retry in a few seconds."
+        );
+      } else if (!error.response) {
+        setErrorMessage(
+          "Unable to connect to the backend server. Please verify your internet connection or backend server status."
+        );
+      } else {
+        setErrorMessage(
+          error.response.data?.message || "Invalid credentials. Please try again."
+        );
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="auth-container">
       <form className="auth-form" onSubmit={handleSubmit}>
-
         {/* Brand */}
         <div className="auth-brand">
           <div className="auth-brand__name">AI Interview</div>
@@ -64,6 +74,26 @@ function Login() {
         </h1>
         <p className="auth-hint">Continue where you left off.</p>
 
+        {/* Error Alert */}
+        {errorMessage && (
+          <div className="auth-alert auth-alert--error" role="alert">
+            <svg
+              className="auth-alert__icon"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              width="16"
+              height="16"
+            >
+              <path
+                fillRule="evenodd"
+                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
         {/* Email */}
         <div className="auth-field">
           <label className="auth-field__label">Email</label>
@@ -74,7 +104,9 @@ function Login() {
             placeholder="you@example.com"
             value={formData.email}
             onChange={handleChange}
+            autoComplete="email"
             required
+            disabled={loading}
           />
         </div>
 
@@ -88,18 +120,28 @@ function Login() {
             placeholder="••••••••"
             value={formData.password}
             onChange={handleChange}
+            autoComplete="current-password"
             required
+            disabled={loading}
           />
         </div>
 
         {/* Forgot password */}
         <div className="auth-forgot-row">
-          <a href="/" className="auth-forgot">Forgot password?</a>
+          <Link to="/" className="auth-forgot">
+            Forgot password?
+          </Link>
         </div>
 
         {/* Submit */}
-        <button type="submit" className="auth-btn">
-          Continue →
+        <button type="submit" className="auth-btn" disabled={loading}>
+          {loading ? (
+            <span className="auth-btn__content">
+              <span className="auth-spinner" /> Signing in...
+            </span>
+          ) : (
+            "Continue →"
+          )}
         </button>
 
         {/* Sign up */}
@@ -109,109 +151,9 @@ function Login() {
             Sign up free
           </Link>
         </p>
-
       </form>
     </div>
   );
 }
 
 export default Login;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// import React, { useState } from "react";
-// import { Link, useNavigate } from "react-router-dom";
-// import axios from "axios";
-// import "./Auth.css";
-
-// function Login() {
-//   const navigate = useNavigate();
-
-//   const [formData, setFormData] = useState({
-//     email: "",
-//     password: ""
-//   });
-
-//   const handleChange = (e) => {
-//     setFormData({
-//       ...formData,
-//       [e.target.name]: e.target.value
-//     });
-//   };
-// const handleSubmit = async (e) => {
-//   e.preventDefault();
-
-//   try {
-//     const response = await axios.post(
-//       "http://localhost:5000/api/auth/login",
-//       formData
-//     );
-
-//     // ✅ Save token
-//     localStorage.setItem("token", response.data.token);
-
-//     // ✅ Save user (optional but useful)
-//     localStorage.setItem("user", JSON.stringify(response.data.user));
-
-//     alert("Login Successful!");
-
-//     // ✅ ROLE BASED REDIRECT
-//     if (response.data.user.role === "admin") {
-//       navigate("/admin");
-//     } else {
-//       navigate("/dashboard");
-//     }
-
-//   } catch (error) {
-//     alert(error.response?.data?.message || "Login failed");
-//   }
-// };
-
-//   return (
-//     <div className="auth-container">
-//       <form className="auth-form" onSubmit={handleSubmit}>
-//         <h2>Login</h2>
-
-//         <input
-//           type="email"
-//           name="email"
-//           placeholder="Enter Email"
-//           onChange={handleChange}
-//           required
-//         />
-
-//         <input
-//           type="password"
-//           name="password"
-//           placeholder="Enter Password"
-//           onChange={handleChange}
-//           required
-//         />
-
-//         <button type="submit">Login</button>
-
-//         <p>
-//           Don't have an account? <Link to="/signup">Signup</Link>
-//         </p>
-//       </form>
-//     </div>
-//   );
-// }
-
-// export default Login;

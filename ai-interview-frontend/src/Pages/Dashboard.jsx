@@ -131,6 +131,7 @@ const TOPICS = Object.keys(MCQ_DATA);
 // DASHBOARD VIEW
 // ══════════════════════════════════════════════════════════════════════════════
 function DashboardView({ interviews = [] }) {
+  const navigate = useNavigate();
   const safeScores = interviews.map(i => Number(i.totalScore)).filter(s => !isNaN(s));
 
   const stats = [
@@ -155,6 +156,53 @@ function DashboardView({ interviews = [] }) {
             <div className="stat-label">{s.label}</div>
           </div>
         ))}
+      </div>
+
+      {/* Past Completed Interviews */}
+      <div style={{ marginTop: 36 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h2 style={{ fontSize: "1.2rem", fontWeight: 700, color: T.text1, margin: 0 }}>Past Interview Sessions</h2>
+          <span style={{ fontSize: "0.85rem", color: T.text2 }}>{interviews.length} completed</span>
+        </div>
+
+        {interviews.length === 0 ? (
+          <div style={{ background: T.cardBg, border: `1px dashed ${T.border}`, borderRadius: 12, padding: "36px 20px", textAlign: "center" }}>
+            <div style={{ fontSize: "2rem", marginBottom: 10 }}>🎯</div>
+            <h3 style={{ fontSize: "1rem", fontWeight: 600, color: T.text1, margin: "0 0 6px 0" }}>No mock interviews conducted yet</h3>
+            <p style={{ fontSize: "0.85rem", color: T.text2, margin: 0 }}>Select "AI Interview" from the sidebar to take your first simulated technical or HR interview.</p>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {interviews.map((iv) => {
+              const totalPossible = (iv.questions?.length || 5) * 5;
+              const dateStr = iv.createdAt ? new Date(iv.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Recent";
+              return (
+                <div key={iv._id} style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 12, padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontWeight: 700, fontSize: "0.95rem", color: T.text1 }}>{iv.role} Interview</span>
+                      <span style={{ fontSize: "0.75rem", padding: "2px 8px", borderRadius: 99, background: "#f0fdf4", color: "#16a34a", fontWeight: 600 }}>{iv.difficulty}</span>
+                    </div>
+                    <div style={{ fontSize: "0.8rem", color: T.text3 }}>Completed on {dateStr} · {iv.questions?.length || 0} questions</div>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: "1.1rem", fontWeight: 800, color: T.accent }}>{iv.totalScore} <span style={{ fontSize: "0.8rem", color: T.text2 }}>/ {totalPossible}</span></div>
+                      <div style={{ fontSize: "0.72rem", color: T.text3 }}>Final Score</div>
+                    </div>
+                    <button
+                      onClick={() => navigate("/result", { state: iv })}
+                      style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${T.accent}`, background: "#eef2ff", color: T.accent, fontWeight: 600, fontSize: "0.82rem", cursor: "pointer" }}
+                    >
+                      View Report →
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

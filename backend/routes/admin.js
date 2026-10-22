@@ -1,289 +1,139 @@
 const express = require("express");
 const router = express.Router();
+const bcrypt = require("bcryptjs");
 
 const User = require("../models/User");
 const Interview = require("../models/Interview");
-
-
 const protect = require("../middleware/authMiddleware");
 const adminOnly = require("../middleware/adminMiddleware");
 
-const bcrypt = require("bcryptjs");
-
-
 // ─────────────────────────────────────────
-// CREATE DEFAULT ADMIN
+// CREATE DEFAULT ADMIN (Protected by Secret / Dev-only)
 // ─────────────────────────────────────────
 router.post("/create-admin", async (req, res) => {
   try {
-    const hashedPassword = await bcrypt.hash("123456", 10);
+    const adminSecret = req.headers["x-admin-secret"] || req.body?.adminSecret;
+    const configuredSecret = process.env.ADMIN_SECRET_KEY;
+
+    // Disallow in production unless configured secret matches
+    if (process.env.NODE_ENV === "production") {
+      if (!configuredSecret || adminSecret !== configuredSecret) {
+        return res.status(403).json({
+          message: "Forbidden: Admin creation requires a valid ADMIN_SECRET_KEY in production"
+        });
+      }
+    } else if (configuredSecret && adminSecret !== configuredSecret) {
+      return res.status(403).json({
+        message: "Forbidden: Invalid admin setup secret key"
+      });
+    }
+
+    const email = (req.body?.email || "admin@gmail.com").toLowerCase().trim();
+    const existingAdmin = await User.findOne({ email });
+
+    if (existingAdmin) {
+      return res.status(400).json({ message: `Admin account with email ${email} already exists` });
+    }
+
+    const passwordToHash = req.body?.password || "123456";
+    const hashedPassword = await bcrypt.hash(passwordToHash, 10);
 
     const admin = new User({
-      name: "Admin",
-      email: "admin@gmail.com",
+      name: req.body?.name || "Admin",
+      email,
       password: hashedPassword,
       role: "admin"
     });
 
     await admin.save();
 
-    res.json({ message: "Admin created successfully" });
+    return res.status(201).json({
+      message: "Admin created successfully",
+      admin: {
+        id: admin._id,
+        name: admin.name,
+        email: admin.email,
+        role: admin.role
+      }
+    });
 
   } catch (err) {
-    res.status(500).json(err);
+    console.error("Create admin error:", err);
+    return res.status(500).json({ message: "Server error creating admin" });
   }
 });
-
 
 // ─────────────────────────────────────────
 // ADMIN TEST ROUTE
 // ─────────────────────────────────────────
-router.get("/", (req, res) => {
-  res.send("Admin login successful");
+router.get("/", protect, adminOnly, (req, res) => {
+  res.json({ message: "Admin area access authorized", user: req.user });
 });
 
-
 // ─────────────────────────────────────────
-// GET ALL USERS
+// GET ALL USERS (Admin Only)
 // ─────────────────────────────────────────
 router.get("/users", protect, adminOnly, async (req, res) => {
   try {
-
-    const users = await User.find().select("-password");
-
-    res.json(users);
-
+    const users = await User.find().select("-password").sort({ createdAt: -1 });
+    return res.json(users);
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error fetching users" });
   }
 });
 
-
 // ─────────────────────────────────────────
-// DELETE USER
+// DELETE USER (Admin Only)
 // ─────────────────────────────────────────
 router.delete("/users/:id", protect, adminOnly, async (req, res) => {
   try {
+    if (req.params.id === req.user.id) {
+      return res.status(400).json({ message: "Security violation: Cannot delete your own admin account" });
+    }
+
+    const userToDelete = await User.findById(req.params.id);
+    if (!userToDelete) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     await User.findByIdAndDelete(req.params.id);
-
-    res.json({ message: "User deleted successfully" });
-
+    return res.json({ message: "User deleted successfully" });
   } catch (err) {
-    res.status(500).json({ message: "Delete failed" });
+    return res.status(500).json({ message: "Delete failed" });
   }
 });
 
-
 // ─────────────────────────────────────────
-// ADMIN DASHBOARD STATS
+// ADMIN DASHBOARD STATS (Admin Only)
 // ─────────────────────────────────────────
 router.get("/stats", protect, adminOnly, async (req, res) => {
   try {
-
     const totalUsers = await User.countDocuments();
     const totalInterviews = await Interview.countDocuments();
-    
 
-    res.json({
+    return res.json({
       users: totalUsers,
-      interviews: totalInterviews,
-    
+      interviews: totalInterviews
     });
-
   } catch (error) {
-    res.status(500).json({ message: "Failed to fetch stats" });
+    return res.status(500).json({ message: "Failed to fetch stats" });
   }
 });
 
-router.get("/interviews", async (req, res) => {
+// ─────────────────────────────────────────
+// GET ALL INTERVIEWS (Admin Only & Correct Populate)
+// ─────────────────────────────────────────
+router.get("/interviews", protect, adminOnly, async (req, res) => {
   try {
-
     const interviews = await Interview.find()
-      .populate("createdBy", "name")
-      .populate("questions");
+      .populate("user", "name email role")
+      .sort({ createdAt: -1 });
 
-    res.json(interviews);
-
+    return res.json(interviews);
   } catch (err) {
-    res.status(500).json({ message: "Server Error" });
+    console.error("Fetch interviews error:", err);
+    return res.status(500).json({ message: "Server Error fetching interviews" });
   }
 });
+
 module.exports = router;
-
-
-
-
-
-
-
-
-
-
-
-// const express = require("express");
-// const router = express.Router();
-// const User = require("../models/User");
-
-// const protect = require("../middleware/authMiddleware");
-// const adminOnly = require("../middleware/adminMiddleware");
-// const bcrypt = require("bcryptjs");
-
-
-// router.post("/create-admin", async (req, res) => {
-//   try {
-//     const hashedPassword = await bcrypt.hash("123456", 10);
-
-//     const admin = new User({
-//       name: "Admin",
-//       email: "admin@gmail.com",
-//       password: hashedPassword,
-//       role: "admin"
-//     });
-
-//     await admin.save();
-//     res.json({ message: "Admin created successfully" });
-//   } catch (err) {
-//     res.status(500).json(err);
-//   }
-// });
-// router.get("/", (req, res) => {
-//   res.send("Admin login successful");
-// });
-// // ✅ GET ALL USERS
-// router.get("/users", protect, adminOnly, async (req, res) => {
-//   try {
-//     const users = await User.find().select("-password");
-//     res.json(users);
-//   } catch (err) {
-//     res.status(500).json({ message: "Server error" });
-//   }
-// });
-
-// // ✅ DELETE USER
-// router.delete("/users/:id", protect, adminOnly, async (req, res) => {
-//   try {
-//     await User.findByIdAndDelete(req.params.id);
-//     res.json({ message: "User deleted" });
-//   } catch (err) {
-//     res.status(500).json({ message: "Delete failed" });
-//   }
-// });
-
-// module.exports = router;    
-
-
-
-
-
-
-
-
-
-
-
-
-
-// last version of admin.js before refactor to add interview stats and other admin features
-// const express = require("express");
-// const router = express.Router();
-
-// const User = require("../models/User");
-// const Interview = require("../models/Interview");
-
-
-// const protect = require("../middleware/authMiddleware");
-// const adminOnly = require("../middleware/adminMiddleware");
-
-// const bcrypt = require("bcryptjs");
-
-
-// // ─────────────────────────────────────────
-// // CREATE DEFAULT ADMIN
-// // ─────────────────────────────────────────
-// router.post("/create-admin", async (req, res) => {
-//   try {
-//     const hashedPassword = await bcrypt.hash("123456", 10);
-
-//     const admin = new User({
-//       name: "Admin",
-//       email: "admin@gmail.com",
-//       password: hashedPassword,
-//       role: "admin"
-//     });
-
-//     await admin.save();
-
-//     res.json({ message: "Admin created successfully" });
-
-//   } catch (err) {
-//     res.status(500).json(err);
-//   }
-// });
-
-
-// // ─────────────────────────────────────────
-// // ADMIN TEST ROUTE
-// // ─────────────────────────────────────────
-// router.get("/", (req, res) => {
-//   res.send("Admin login successful");
-// });
-
-
-// // ─────────────────────────────────────────
-// // GET ALL USERS
-// // ─────────────────────────────────────────
-// router.get("/users", protect, adminOnly, async (req, res) => {
-//   try {
-
-//     const users = await User.find().select("-password");
-
-//     res.json(users);
-
-//   } catch (err) {
-//     res.status(500).json({ message: "Server error" });
-//   }
-// });
-
-
-// // ─────────────────────────────────────────
-// // DELETE USER
-// // ─────────────────────────────────────────
-// router.delete("/users/:id", protect, adminOnly, async (req, res) => {
-//   try {
-
-//     await User.findByIdAndDelete(req.params.id);
-
-//     res.json({ message: "User deleted successfully" });
-
-//   } catch (err) {
-//     res.status(500).json({ message: "Delete failed" });
-//   }
-// });
-
-
-// // ─────────────────────────────────────────
-// // ADMIN DASHBOARD STATS
-// // ─────────────────────────────────────────
-// router.get("/stats", protect, adminOnly, async (req, res) => {
-//   try {
-
-//     const totalUsers = await User.countDocuments();
-//     const totalInterviews = await Interview.countDocuments();
-    
-
-//     res.json({
-//       users: totalUsers,
-//       interviews: totalInterviews,
-    
-//     });
-
-//   } catch (error) {
-//     res.status(500).json({ message: "Failed to fetch stats" });
-//   }
-// });
-
-
-// module.exports = router;
-
-

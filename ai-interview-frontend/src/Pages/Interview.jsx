@@ -11,9 +11,15 @@ function Interview() {
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState([]);
   const [errors, setErrors] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 🔹 Fetch Questions
   useEffect(() => {
+    if (!role || !difficulty) {
+      navigate("/dashboard");
+      return;
+    }
+
     const fetchQuestions = async () => {
       try {
         const res = await axios.post("/api/interview/generate", {
@@ -32,7 +38,7 @@ function Interview() {
     };
 
     fetchQuestions();
-  }, [role, difficulty, questionCount]);
+  }, [role, difficulty, questionCount, navigate]);
 
   // 🔹 Handle Answer Change
   const handleChange = (index, value) => {
@@ -57,6 +63,7 @@ const handleFinish = async () => {
     return;
   }
 
+  setIsSubmitting(true);
   try {
     const res = await axios.post("/api/interview/submit", {
       role,
@@ -73,8 +80,10 @@ const handleFinish = async () => {
     });
 
   } catch (err) {
-    console.error(err);
-    alert("Error saving interview");
+    console.error("Submission error:", err);
+    alert(err.response?.data?.message || "Error submitting interview. Please try again.");
+  } finally {
+    setIsSubmitting(false);
   }
 };
   return (
@@ -105,24 +114,25 @@ const handleFinish = async () => {
         </div>
       ))}
 <button
+  disabled={isSubmitting}
   style={{
     marginTop: "30px",
     padding: "12px 24px",
-    backgroundColor: "#4290ea",
+    backgroundColor: isSubmitting ? "#94a3b8" : "#4290ea",
     color: "#fff",
     border: "none",
     borderRadius: "8px",
     fontSize: "16px",
     fontWeight: "600",
-    cursor: "pointer",
+    cursor: isSubmitting ? "not-allowed" : "pointer",
     transition: "all 0.3s ease",
     boxShadow: "0 4px 10px rgba(0,0,0,0.1)"
   }}
-  onClick={handleFinish}
-  onMouseOver={(e) => (e.target.style.backgroundColor = "#2880d8")}
-  onMouseOut={(e) => (e.target.style.backgroundColor = "#50a6e7")}
+  onClick={isSubmitting ? undefined : handleFinish}
+  onMouseOver={(e) => { if (!isSubmitting) e.target.style.backgroundColor = "#2880d8"; }}
+  onMouseOut={(e) => { if (!isSubmitting) e.target.style.backgroundColor = "#50a6e7"; }}
 >
-  Finish Interview
+  {isSubmitting ? "Evaluating with AI..." : "Finish Interview"}
 </button>
     </div>
   );
