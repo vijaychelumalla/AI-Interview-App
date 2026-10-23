@@ -49,9 +49,18 @@ function Login() {
         setErrorMessage(
           "Unable to connect to the backend server. Please verify your internet connection or backend server status."
         );
-      } else {
+      } else if (error.response.status === 502 || error.response.status === 504) {
         setErrorMessage(
-          error.response.data?.message || "Invalid credentials. Please try again."
+          "Backend gateway error (" + error.response.status + "). The backend server is unreachable. Please verify deployment status."
+        );
+      } else if (error.response.status === 503) {
+        setErrorMessage(
+          error.response.data?.message || "Database service is temporarily unavailable. Please verify MongoDB connection."
+        );
+      } else {
+        const msg = error.response.data?.message;
+        setErrorMessage(
+          typeof msg === "string" ? msg : "Invalid credentials. Please try again."
         );
       }
     } finally {

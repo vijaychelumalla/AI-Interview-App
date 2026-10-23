@@ -52,19 +52,33 @@ app.use((req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
+let reconnectTimer = null;
 const connectDB = async () => {
+  if (mongoose.connection.readyState === 1) return;
+
   const mongoUri = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/aiInterviewDB";
   try {
-    await mongoose.connect(mongoUri);
+    await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 });
     console.log("MongoDB Connected successfully");
+    if (reconnectTimer) {
+      clearInterval(reconnectTimer);
+      reconnectTimer = null;
+    }
   } catch (err) {
     console.warn(`Primary MongoDB connection failed (${err.message}). Falling back to local MongoDB...`);
     try {
-      await mongoose.connect("mongodb://127.0.0.1:27017/aiInterviewDB");
+      await mongoose.connect("mongodb://127.0.0.1:27017/aiInterviewDB", { serverSelectionTimeoutMS: 3000 });
       console.log("Local MongoDB Connected successfully");
+      if (reconnectTimer) {
+        clearInterval(reconnectTimer);
+        reconnectTimer = null;
+      }
     } catch (localErr) {
       console.error("Local MongoDB connection also failed:", localErr.message);
       console.warn("Server will continue running. Ensure MONGO_URI is set to a live MongoDB Atlas cluster for full functionality.");
+      if (process.env.NODE_ENV !== "test" && !reconnectTimer) {
+        reconnectTimer = setInterval(connectDB, 15000);
+      }
     }
   }
 };
